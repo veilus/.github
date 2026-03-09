@@ -32,18 +32,6 @@ Unlike traditional Electron-based alternatives, Veilus is engineered from the gr
 - 🛡️ **Deep, Verified Fingerprints** — validated by CreepJS & Iphey
 - 🔄 **50+ Concurrent Profiles** on a standard 16GB laptop
 
-## 🏗️ Architecture
-
-Veilus operates as a dual-binary system designed for security, isolation, and performance:
-
-| Layer | Technology | Role |
-|:------|:-----------|:-----|
-| **UI** | Svelte 5 (Runes) + Tauri | Profile management, license verification, Flow designer |
-| **Core** | Rust (`veilus-core`) | Chromium process isolation, fingerprint injection |
-| **API** | Cloudflare Workers (Hono.js) | Session management, license validation, script distribution |
-| **Storage** | Drizzle / SQLite | Local profile metadata and app state |
-| **Sync** | Cloudflare R2 + D1 | Zero-knowledge profile synchronization |
-
 ## ✨ Key Products
 
 ### 🌊 Veilus Flow
@@ -54,20 +42,6 @@ A **low-code/no-code visual automation engine** with a node-based designer and J
 
 ### 🎭 Profile Isolation
 Each browser profile runs in a fully isolated environment with unique fingerprints, cookies, local storage, and network configurations. No data leaks between sessions.
-
-## 📦 Repository Structure
-
-```
-veilus/
-├── app/           # Tauri desktop application (Svelte 5 + Rust)
-├── api/           # Cloudflare Workers API (Hono.js)
-├── chromium/      # Custom-patched Chromium engine
-├── website/       # Landing page & marketing site (veilus.io)
-├── docs/          # Documentation site (docs.veilus.io)
-├── admin/         # Admin dashboard
-├── design-system/ # Shared UI components & tokens
-└── marketing/     # Brand assets & campaigns
-```
 
 ## 🎨 Brand
 
