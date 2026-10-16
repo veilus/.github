@@ -35,7 +35,8 @@ Veilus is a desktop app for running many browser profiles on one computer. Each 
   <a href="https://x.com/veilusbrowser">X</a>
 </p>
 
-- **Own fingerprint and proxy per profile** — 59 fingerprint fields, each consumed by a patch in the engine; HTTP or SOCKS5 proxy per profile
+- **Fingerprint patched in Chromium's C++ source** — 54 patches on Chromium 154; no page script, no extension. [How](#patched-in-c-not-injected)
+- **Own fingerprint and proxy per profile** — 59 fingerprint fields, each read by C++ code inside the engine; HTTP or SOCKS5 proxy per profile
 - **Built-in MCP server, 39 tools** — profiles, proxies, scripts, batch runs, schedules, datasets, and direct page control (navigate, click, type, snapshot)
 - **Your assistant writes the automation** — it saves a Playwright script, runs it on a few profiles, reads each profile's error and fixes it
 - **You approve before it scales** — a script added over MCP or the REST API runs on at most 3 profiles until you approve it in the app; batch runs and schedules need that approval
@@ -131,6 +132,33 @@ Don't create a new context with your own user agent, viewport or locale — it w
 
 There is no tool that approves a script. Approval happens only in the app, by you. Tool reference: [docs.veilus.io/reference/mcp](https://docs.veilus.io/reference/mcp/).
 
+## Patched in C++, not injected
+
+A site checks a fingerprint by asking the browser: `navigator.hardwareConcurrency`, a canvas hash, the WebGL renderer, the list of fonts. If the answer is changed by JavaScript injected into the page or by an extension, that script is itself something the site can look for — an overridden getter, a function whose `toString()` is wrong, a property in the wrong place, a value that does not match what a worker or an iframe reports.
+
+Veilus changes the answer where Chromium computes it. The profile's values are read by C++ code inside the engine — in Blink, the GPU process, the audio stack, the network service — and returned through the same code paths a normal Chrome uses. There is no script in the page and no extension for a site to find.
+
+| Area | Patched in C++ |
+|---|---|
+| Graphics | Canvas, WebGL (parameters and extension lists), WebGPU adapter, GPU capabilities, glyph metrics |
+| Audio | AudioContext output, sample rate, channel count |
+| Fonts | Font list, generic font families, system font on macOS, bundled fonts so a Windows profile has Windows fonts |
+| Navigator and UA | User agent, UA Client Hints and brands, device memory, platform APIs, battery, Do Not Track, speech voices |
+| Screen | Screen size and color depth, CSS media features, pointer and hover, window frame, a Windows profile running on a Mac |
+| Locale and time | Timezone, ICU locale, `Accept-Language` in JavaScript and on the wire, geolocation |
+| Network | WebRTC IP handling, including a fake-IP mode; DNS through the proxy |
+| Media and permissions | Number of cameras and microphones, permission states |
+| Automation signals | `navigator.webdriver`, CDP `Runtime.enable` on pages and in Web Workers, inspector stack frames, driver source URLs, `performance.now` precision |
+
+How the patch set is kept honest:
+
+- **One set, one build.** The 54 `.patch` files are applied in order to the Chromium 154.0.8037.58 source before every engine build. The Windows engine released on 2026-10-16 was built from exactly this set.
+- **Every field has a consumer.** Each of the 59 fingerprint fields the app generates is read by at least one patch; a test fails when a field has none, unless it is listed as a known gap with a tracked issue.
+- **Patches are checked against stock Chrome.** A premise test runs the patches' probes on unmodified Chrome for Testing of the same version, to confirm the leak each patch closes still exists there.
+- **Measured, not claimed.** Results on public detection sites are in [Detection sites](#detection-sites), with the date and what was not measured.
+
+The engine source is closed. The fingerprint generator that produces the values is open: [fingerprint-generator](https://github.com/veilus/fingerprint-generator).
+
 ## How it works
 
 ```
@@ -141,7 +169,7 @@ There is no tool that approves a script. Approval happens only in the app, by yo
                                                     own fingerprint · own proxy · own cookies
 ```
 
-- **Engine:** Chromium 154, patched in-house. The fingerprint is set inside the browser, not injected as page JavaScript.
+- **Engine:** Chromium 154.0.8037.58 with 54 C++ patches — see below.
 - **Fingerprints:** generated from a Bayesian network trained on real browser data ([fingerprint-generator](https://github.com/veilus/fingerprint-generator)), so values that belong together stay together.
 - **Input:** mouse paths, wheel scrolling and typing rhythm come from [human-input](https://github.com/veilus/human-input).
 - **Load control:** up to 16 browsers open at once, shared by every way of opening one (by hand, schedule, API, assistant); batch runs wait when CPU or RAM is high.
